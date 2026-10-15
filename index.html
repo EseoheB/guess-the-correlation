@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Guess the Correlation | Rabiat Blessing Ibrahim</title>
+<meta name="description" content="A quick data game: look at a scatter plot and guess the correlation. Built by Rabiat Blessing Ibrahim.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📈</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #EEF3F8;
+  --grid: #D7E1EC;
+  --ink: #14213D;
+  --muted: #4E5D78;
+  --panel: #FFFFFF;
+  --line: #C9D5E3;
+  --mark: #F2B632;
+  --miss: #C8384F;
+  --hit: #23875A;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #0E1829;
+    --grid: #1A2740;
+    --ink: #E8EEF7;
+    --muted: #A2B2CB;
+    --panel: #152238;
+    --line: #2A3B5A;
+    --mark: #F4C24F;
+    --miss: #FF6F86;
+    --hit: #5CD392;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html { height: 100%; }
+body {
+  margin: 0;
+  min-height: 100%;
+  background-color: var(--paper);
+  background-image:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 28px 28px;
+  color: var(--ink);
+  font-family: "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 1.0625rem;
+  line-height: 1.5;
+  padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px);
+}
+.wrap { max-width: 1040px; margin: 0 auto; padding: 2.5rem 1.25rem 3rem; }
+
+header h1 {
+  font-size: clamp(2.4rem, 7vw, 4.6rem);
+  line-height: 0.95;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin: 0 0 0.75rem;
+  max-width: 12ch;
+}
+header p { margin: 0; max-width: 56ch; color: var(--muted); }
+
+.game {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 2rem;
+  margin-top: 2.25rem;
+  align-items: start;
+}
+@media (max-width: 820px) { .game { grid-template-columns: 1fr; gap: 1.25rem; } }
+
+.plot-box {
+  background: var(--panel);
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  padding: 0.75rem;
+  box-shadow: 6px 6px 0 var(--ink);
+}
+svg#plot { display: block; width: 100%; height: auto; }
+.axis { stroke: var(--line); stroke-width: 1.5; }
+.dot { fill: var(--ink); opacity: 0.82; }
+.fit { stroke: var(--mark); stroke-width: 5; stroke-linecap: round; }
+
+.panel { display: flex; flex-direction: column; gap: 1.25rem; }
+.status { display: flex; justify-content: space-between; color: var(--muted); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.readout {
+  font-size: clamp(4rem, 12vw, 6.5rem);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+}
+.readout-label { margin: 0 0 0.25rem; color: var(--muted); }
+
+input[type=range] {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 14px; border-radius: 7px;
+  background: linear-gradient(90deg, var(--miss), var(--line) 50%, var(--hit));
+  outline: none; margin: 0.5rem 0 0;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--panel); border: 3px solid var(--ink); cursor: pointer;
+}
+input[type=range]::-moz-range-thumb {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--panel); border: 3px solid var(--ink); cursor: pointer;
+}
+input[type=range]:focus-visible { box-shadow: 0 0 0 3px var(--mark); }
+.scale { display: flex; justify-content: space-between; color: var(--muted); font-size: 0.9rem; margin-top: 0.35rem; }
+
+button {
+  font: inherit; font-weight: 600;
+  padding: 0.85rem 1.4rem;
+  border-radius: 6px;
+  border: 2px solid var(--ink);
+  background: var(--ink); color: var(--paper);
+  cursor: pointer;
+  box-shadow: 4px 4px 0 var(--mark);
+  transition: transform .08s ease, box-shadow .08s ease;
+}
+button:hover { transform: translate(-1px, -1px); box-shadow: 5px 5px 0 var(--mark); }
+button:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--mark); }
+button:focus-visible { outline: 3px solid var(--mark); outline-offset: 3px; }
+button.ghost { background: transparent; color: var(--ink); box-shadow: none; }
+.actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+
+.result { display: none; }
+.result.show { display: block; }
+.verdict { font-size: 1.6rem; font-weight: 800; margin: 0 0 0.35rem; }
+.result p { margin: 0.2rem 0; }
+.num { font-variant-numeric: tabular-nums; font-weight: 600; }
+.good { color: var(--hit); }
+.bad { color: var(--miss); }
+
+.strip { position: relative; height: 40px; margin: 0.9rem 0 0.4rem; }
+.strip .track { position: absolute; left: 0; right: 0; top: 18px; height: 4px; background: var(--line); border-radius: 2px; }
+.strip .gap { position: absolute; top: 16px; height: 8px; background: var(--miss); border-radius: 4px; opacity: .45; }
+.strip .pin { position: absolute; top: 4px; width: 4px; height: 32px; border-radius: 2px; transform: translateX(-2px); }
+.strip .pin.guess { background: var(--ink); }
+.strip .pin.truth { background: var(--mark); width: 6px; transform: translateX(-3px); }
+.legend { display: flex; gap: 1.25rem; font-size: 0.9rem; color: var(--muted); }
+.legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.legend .lg::before { background: var(--ink); }
+.legend .lt::before { background: var(--mark); }
+
+.end { display: none; }
+.end.show { display: block; }
+.end h2 { font-size: clamp(2rem, 6vw, 3rem); line-height: 1; margin: 0 0 0.75rem; letter-spacing: -0.02em; }
+.end .big { white-space: nowrap; font-size: clamp(2.75rem, 7vw, 4.25rem); font-weight: 800; line-height: 1; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; margin: 0.25rem 0 0.5rem; }
+.copied { color: var(--hit); font-weight: 600; min-height: 1.5em; margin: 0.5rem 0 0; }
+
+.how {
+  margin-top: 3rem;
+  max-width: 64ch;
+  color: var(--muted);
+}
+.how h2 { color: var(--ink); font-size: 1.35rem; margin: 0 0 0.5rem; }
+.how p { margin: 0 0 0.75rem; }
+
+footer { margin-top: 2.5rem; color: var(--muted); font-size: 0.95rem; }
+footer a { color: var(--ink); font-weight: 600; text-underline-offset: 3px; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Guess the correlation</h1>
+    <p>Look at the dots. Slide to your best guess for r, from -1 (perfect downhill line) to 1 (perfect uphill line). Ten plots, 100 points each.</p>
+  </header>
+
+  <main class="game">
+    <div class="plot-box">
+      <svg id="plot" viewBox="0 0 400 400" role="img" aria-label="Scatter plot for the current round"></svg>
+    </div>
+
+    <section class="panel" aria-live="polite">
+      <div class="status">
+        <span id="round">Round 1 of 10</span>
+        <span id="score">Score 0</span>
+      </div>
+
+      <div id="guessArea">
+        <p class="readout-label">Your guess</p>
+        <p class="readout" id="readout">0.00</p>
+        <label for="slider" class="readout-label" style="position:absolute;left:-9999px">Correlation guess</label>
+        <input type="range" id="slider" min="-1" max="1" step="0.01" value="0">
+        <div class="scale"><span>-1</span><span>0</span><span>1</span></div>
+      </div>
+
+      <div class="result" id="result">
+        <p class="verdict" id="verdict"></p>
+        <p>Actual r: <span class="num" id="truthVal"></span></p>
+        <p>You were off by <span class="num" id="errVal"></span>, worth <span class="num" id="ptsVal"></span> points.</p>
+        <div class="strip" aria-hidden="true">
+          <div class="track"></div>
+          <div class="gap" id="gapBar"></div>
+          <div class="pin guess" id="pinGuess"></div>
+          <div class="pin truth" id="pinTruth"></div>
+        </div>
+        <div class="legend"><span class="lg">Your guess</span><span class="lt">Actual r and best-fit line</span></div>
+      </div>
+
+      <div class="end" id="end">
+        <h2 id="endTitle"></h2>
+        <p class="big" id="endScore"></p>
+        <p>Average miss: <span class="num" id="endErr"></span></p>
+        <p id="bestLine"></p>
+        <div class="actions" style="margin-top:1rem">
+          <button id="again">Play again</button>
+          <button class="ghost" id="share">Copy my score</button>
+        </div>
+        <p class="copied" id="copied"></p>
+      </div>
+
+      <div class="actions" id="mainActions">
+        <button id="lock">Lock in guess</button>
+      </div>
+    </section>
+  </main>
+
+  <section class="how">
+    <h2>What is r?</h2>
+    <p>The correlation coefficient r measures how closely two variables follow a straight line. Near 1, both rise together. Near -1, one rises while the other falls. Near 0, there is no straight-line pattern at all.</p>
+    <p>It is easy to misread. Lots of points can hide a weak pattern, and a few points can make a weak pattern look strong. Checking the number, instead of trusting your eye, is a habit worth building.</p>
+  </section>
+
+  <footer>
+    Built by Rabiat Blessing Ibrahim. See more of my work on
+    <a href="https://github.com/EseoheB">GitHub</a> and
+    <a href="https://www.linkedin.com/in/ibrahimblessing">LinkedIn</a>.
+  </footer>
+</div>
+
+<script>
+(function () {
+  const TOTAL = 10;
+  const NS = "http://www.w3.org/2000/svg";
+  const $ = id => document.getElementById(id);
+  const plot = $("plot"), slider = $("slider"), readout = $("readout");
+  const lockBtn = $("lock");
+
+  let round = 1, score = 0, errors = [], current = null, phase = "guess";
+
+  function randn() {
+    let u = 0, v = 0;
+    while (u === 0) u = Math.random();
+    while (v === 0) v = Math.random();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  }
+
+  function pickTarget() {
+    const roll = Math.random();
+    if (roll < 0.2) return (Math.random() < 0.5 ? -1 : 1) * (0.8 + Math.random() * 0.19);
+    if (roll < 0.35) return (Math.random() - 0.5) * 0.3;
+    return Math.random() * 1.9 - 0.95;
+  }
+
+  function pearson(xs, ys) {
+    const n = xs.length;
+    const mx = xs.reduce((a, b) => a + b, 0) / n;
+    const my = ys.reduce((a, b) => a + b, 0) / n;
+    let sxy = 0, sxx = 0, syy = 0;
+    for (let i = 0; i < n; i++) {
+      const dx = xs[i] - mx, dy = ys[i] - my;
+      sxy += dx * dy; sxx += dx * dx; syy += dy * dy;
+    }
+    return { r: sxy / Math.sqrt(sxx * syy), mx, my, slope: sxy / sxx };
+  }
+
+  function makeRound() {
+    const t = pickTarget();
+    const n = 30 + Math.floor(Math.random() * 90);
+    const xs = [], ys = [];
+    for (let i = 0; i < n; i++) {
+      const x = randn(), e = randn();
+      xs.push(x);
+      ys.push(t * x + Math.sqrt(1 - t * t) * e);
+    }
+    const stats = pearson(xs, ys);
+    return { xs, ys, ...stats };
+  }
+
+  function scaler(vals, lo, hi) {
+    const min = Math.min(...vals), max = Math.max(...vals);
+    const span = (max - min) || 1;
+    return v => lo + ((v - min) / span) * (hi - lo);
+  }
+
+  function draw(withFit) {
+    plot.innerHTML = "";
+    const pad = 28;
+    const sx = scaler(current.xs, pad, 400 - pad);
+    const syRaw = scaler(current.ys, 400 - pad, pad);
+    const axis = (x1, y1, x2, y2) => {
+      const l = document.createElementNS(NS, "line");
+      l.setAttribute("x1", x1); l.setAttribute("y1", y1);
+      l.setAttribute("x2", x2); l.setAttribute("y2", y2);
+      l.setAttribute("class", "axis");
+      plot.appendChild(l);
+    };
+    axis(pad - 12, 400 - pad + 12, 400 - pad + 12, 400 - pad + 12);
+    axis(pad - 12, pad - 12, pad - 12, 400 - pad + 12);
+
+    if (withFit) {
+      const minX = Math.min(...current.xs), maxX = Math.max(...current.xs);
+      const yAt = x => current.my + current.slope * (x - current.mx);
+      const l = document.createElementNS(NS, "line");
+      l.setAttribute("x1", sx(minX)); l.setAttribute("y1", clampY(syRaw(yAt(minX)), pad));
+      l.setAttribute("x2", sx(maxX)); l.setAttribute("y2", clampY(syRaw(yAt(maxX)), pad));
+      l.setAttribute("class", "fit");
+      plot.appendChild(l);
+    }
+    current.xs.forEach((x, i) => {
+      const c = document.createElementNS(NS, "circle");
+      c.setAttribute("cx", sx(x).toFixed(1));
+      c.setAttribute("cy", syRaw(current.ys[i]).toFixed(1));
+      c.setAttribute("r", 4.5);
+      c.setAttribute("class", "dot");
+      plot.appendChild(c);
+    });
+  }
+  function clampY(y, pad) { return Math.max(pad - 10, Math.min(400 - pad + 10, y)); }
+
+  const fmt = v => (v < 0 ? "-" : "") + Math.abs(v).toFixed(2);
+  const pos = v => ((v + 1) / 2 * 100) + "%";
+
+  function updateStatus() {
+    $("round").textContent = `Round ${Math.min(round, TOTAL)} of ${TOTAL}`;
+    $("score").textContent = `Score ${score}`;
+  }
+
+  function startRound() {
+    phase = "guess";
+    current = makeRound();
+    draw(false);
+    slider.value = 0; readout.textContent = "0.00";
+    slider.disabled = false;
+    $("result").classList.remove("show");
+    lockBtn.textContent = "Lock in guess";
+    updateStatus();
+  }
+
+  function verdictFor(err) {
+    if (err < 0.05) return ["Bullseye", "good"];
+    if (err < 0.12) return ["Very close", "good"];
+    if (err < 0.25) return ["Not bad", ""];
+    if (err < 0.45) return ["A bit off", "bad"];
+    return ["Way off", "bad"];
+  }
+
+  function reveal() {
+    phase = "reveal";
+    const guess = parseFloat(slider.value);
+    const truth = current.r;
+    const err = Math.abs(guess - truth);
+    const pts = Math.max(0, Math.round(100 - err * 200));
+    score += pts; errors.push(err);
+    slider.disabled = true;
+    draw(true);
+
+    const [v, cls] = verdictFor(err);
+    const vEl = $("verdict");
+    vEl.textContent = v; vEl.className = "verdict " + cls;
+    $("truthVal").textContent = fmt(truth);
+    $("errVal").textContent = err.toFixed(2);
+    $("ptsVal").textContent = pts;
+    $("pinGuess").style.left = pos(guess);
+    $("pinTruth").style.left = pos(truth);
+    const lo = Math.min(guess, truth), hi = Math.max(guess, truth);
+    const gap = $("gapBar");
+    gap.style.left = pos(lo);
+    gap.style.width = ((hi - lo) / 2 * 100) + "%";
+    $("result").classList.add("show");
+
+    lockBtn.textContent = round >= TOTAL ? "See my results" : "Next plot";
+    updateStatus();
+  }
+
+  function finish() {
+    phase = "done";
+    $("guessArea").style.display = "none";
+    $("result").classList.remove("show");
+    $("mainActions").style.display = "none";
+    const avg = errors.reduce((a, b) => a + b, 0) / errors.length;
+    let title = "Keep practicing";
+    if (score >= 900) title = "You read data like a pro";
+    else if (score >= 800) title = "Sharp eye";
+    else if (score >= 650) title = "Solid instincts";
+    $("endTitle").textContent = title;
+    $("endScore").textContent = `${score} / ${TOTAL * 100}`;
+    $("endErr").textContent = avg.toFixed(2);
+
+    let best = null;
+    try {
+      best = parseInt(localStorage.getItem("gtc-best") || "0", 10);
+      if (score > best) { localStorage.setItem("gtc-best", String(score)); best = score; }
+    } catch (e) { best = null; }
+    $("bestLine").textContent = best !== null ? `Your best on this device: ${best}` : "";
+    $("copied").textContent = "";
+    $("end").classList.add("show");
+    $("score").textContent = `Score ${score}`;
+  }
+
+  function restart() {
+    round = 1; score = 0; errors = [];
+    $("end").classList.remove("show");
+    $("guessArea").style.display = "";
+    $("mainActions").style.display = "";
+    startRound();
+  }
+
+  slider.addEventListener("input", () => { readout.textContent = fmt(parseFloat(slider.value)); });
+  lockBtn.addEventListener("click", () => {
+    if (phase === "guess") reveal();
+    else if (phase === "reveal") {
+      if (round >= TOTAL) finish();
+      else { round++; startRound(); }
+    }
+  });
+  document.addEventListener("keydown", e => {
+    if (e.key === "Enter" && phase !== "done" && document.activeElement !== lockBtn) {
+      e.preventDefault(); lockBtn.click();
+    }
+  });
+  $("again").addEventListener("click", restart);
+  $("share").addEventListener("click", async () => {
+    const text = `I scored ${score}/${TOTAL * 100} on Guess the Correlation. Try it: ${location.href}`;
+    try { await navigator.clipboard.writeText(text); $("copied").textContent = "Score copied. Paste it anywhere."; }
+    catch (e) { $("copied").textContent = text; }
+  });
+
+  startRound();
+})();
+</script>
+</body>
+</html>
